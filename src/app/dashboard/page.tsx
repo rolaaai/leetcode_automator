@@ -4,7 +4,8 @@ import { useState } from 'react';
 import SearchInput from '@/components/search/SearchInput';
 import QuestionDisplay from '@/components/search/QuestionDisplay';
 import SuggestionsList from '@/components/search/SuggestionsList';
-import type { LeetCodeQuestion, LeetCodeSearchResult } from '@/types';
+import CodeEditorModal from '@/components/submission/CodeEditorModal';
+import type { LeetCodeQuestion, LeetCodeSearchResult, SubmissionResult } from '@/types';
 
 export default function DashboardPage() {
     const [question, setQuestion] = useState<LeetCodeQuestion | null>(null);
@@ -13,6 +14,11 @@ export default function DashboardPage() {
     const [dailyLoading, setDailyLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showSuggestions, setShowSuggestions] = useState(false);
+
+    // Submission state
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
 
     const handleSearch = async (query: string) => {
         setLoading(true);
@@ -124,6 +130,58 @@ export default function DashboardPage() {
         }
     };
 
+    const handleOpenSubmitModal = () => {
+        setSubmissionResult(null);
+        setShowSubmitModal(true);
+    };
+
+    const handleCloseSubmitModal = () => {
+        setShowSubmitModal(false);
+    };
+
+    const handleSubmitCode = async (code: string, language: string, cookie: string) => {
+        if (!question) return;
+
+        setSubmitting(true);
+        setSubmissionResult(null);
+
+        try {
+            // Extract problem slug from URL
+            const slugMatch = question.url.match(/problems\/([^/]+)/);
+            const problemSlug = slugMatch ? slugMatch[1] : '';
+
+            const response = await fetch('/api/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    problemSlug,
+                    code,
+                    language,
+                    sessionCookie: cookie,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.result) {
+                setSubmissionResult(data.result);
+            } else {
+                throw new Error(data.error || 'Submission failed');
+            }
+        } catch (err) {
+            setSubmissionResult({
+                status: 'Error',
+                errorMessage: err instanceof Error ? err.message : 'Submission failed',
+                submittedAt: new Date().toISOString(),
+            });
+            console.error('Submission error:', err);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const hasResults = question || showSuggestions || loading || dailyLoading;
 
     return (
@@ -207,13 +265,31 @@ export default function DashboardPage() {
                     )}
 
                     {/* Question display */}
-                    {question && <QuestionDisplay question={question} loading={loading} />}
+                    {question && (
+                        <QuestionDisplay
+                            question={question}
+                            loading={loading}
+                            onSubmitClick={handleOpenSubmitModal}
+                        />
+                    )}
 
                     {/* Loading state when no question yet */}
                     {(loading || dailyLoading) && !question && !showSuggestions && (
                         <QuestionDisplay question={null} loading={true} />
                     )}
                 </div>
+            )}
+
+            {/* Code Editor Modal for Submission */}
+            {question && (
+                <CodeEditorModal
+                    question={question}
+                    isOpen={showSubmitModal}
+                    onClose={handleCloseSubmitModal}
+                    onSubmit={handleSubmitCode}
+                    submitting={submitting}
+                    result={submissionResult}
+                />
             )}
         </div>
     );
