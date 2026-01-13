@@ -24,6 +24,15 @@ export interface LeetCodeQuestion {
   examples: Example[];
   constraints: string[];
   url: string;
+  codeSnippets?: CodeSnippet[];
+  sampleTestCase?: string;
+  testCases?: string[];
+}
+
+export interface CodeSnippet {
+  lang: string;
+  langSlug: string;
+  code: string;
 }
 
 export interface Example {
@@ -71,3 +80,26 @@ export interface LeetCodeStats {
 }
 
 export type SidebarSection = 'leetcode' | 'search' | 'history' | 'subscription';
+
+// Submission types
+export interface SubmissionResult {
+  status: 'Accepted' | 'Wrong Answer' | 'Runtime Error' | 'Compile Error' | 'Time Limit Exceeded' | 'Memory Limit Exceeded' | 'Pending' | 'Error';
+  runtime?: string;
+  memory?: string;
+  testCasesPassed?: number;
+  totalTestCases?: number;
+  errorMessage?: string;
+  expectedOutput?: string;
+  actualOutput?: string;
+  input?: string;
+  submittedAt: string;
+}
+
+export interface LeetCodeSession {
+  id?: string;
+  user_id: string;
+  session_cookie: string;
+  csrf_token?: string;
+  expires_at?: string;
+  created_at?: string;
+}
