@@ -1,4 +1,4 @@
-import type { LeetCodeQuestion, Example } from '@/types';
+import type { LeetCodeQuestion, Example, CodeSnippet } from '@/types';
 
 // Type for search results
 export interface LeetCodeSearchResult {
@@ -16,8 +16,15 @@ interface LeetCodeGraphQLResponse {
       difficulty: string;
       content: string;
       exampleTestcases: string;
+      exampleTestcaseList: string[];
       hints: string[];
       questionFrontendId: string;
+      codeSnippets: Array<{
+        lang: string;
+        langSlug: string;
+        code: string;
+      }> | null;
+      sampleTestCase: string;
     } | null;
   };
 }
@@ -410,8 +417,15 @@ export async function scrapeLeetCodeQuestion(urlOrSlug: string): Promise<LeetCod
         difficulty
         content
         exampleTestcases
+        exampleTestcaseList
+        sampleTestCase
         hints
         questionFrontendId
+        codeSnippets {
+          lang
+          langSlug
+          code
+        }
       }
     }
   `;
@@ -444,6 +458,16 @@ export async function scrapeLeetCodeQuestion(urlOrSlug: string): Promise<LeetCod
     const q = data.data.question;
     const url = `https://leetcode.com/problems/${q.titleSlug}/`;
 
+    // Map code snippets
+    const codeSnippets: CodeSnippet[] = (q.codeSnippets || []).map(snippet => ({
+      lang: snippet.lang,
+      langSlug: snippet.langSlug,
+      code: snippet.code,
+    }));
+
+    // Parse test cases
+    const testCases = q.exampleTestcaseList || q.exampleTestcases?.split('\n').filter(Boolean) || [];
+
     const question: LeetCodeQuestion = {
       title: `${q.questionFrontendId}. ${q.title}`,
       difficulty: q.difficulty as 'Easy' | 'Medium' | 'Hard',
@@ -451,9 +475,12 @@ export async function scrapeLeetCodeQuestion(urlOrSlug: string): Promise<LeetCod
       examples: parseExamples(q.content),
       constraints: parseConstraints(q.content),
       url,
+      codeSnippets,
+      sampleTestCase: q.sampleTestCase || testCases[0],
+      testCases,
     };
 
-    console.log('Fetched question:', question.title, '-', question.difficulty);
+    console.log('Fetched question:', question.title, '-', question.difficulty, '- Languages:', codeSnippets.length);
     return question;
 
   } catch (error) {
